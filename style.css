@@ -200,3 +200,9 @@ input[type=number] { max-width: 120px; }
   animation: aparecer .25s ease;
 }
 @keyframes aparecer { from { opacity: 0; } }
+
+/* Giro manual de la ruleta */
+#rueda { touch-action: none; cursor: grab; user-select: none; -webkit-user-select: none; }
+#rueda.arrastrando { cursor: grabbing; }
+#rueda.arrastrando #giro { transition: none; }
+.pista-rueda { margin: 4px 0 0; font-size: 13px; color: #9fb2c4; }

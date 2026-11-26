@@ -45,13 +45,62 @@ function dibujarRueda() {
     `<g>${fuera}</g><g id="giro" class="interior">${dentro}</g>`;
 }
 
+let rotActual = 0;   // ángulo actual del anillo interior (en grados)
+let arrastre = null; // estado mientras el usuario gira la ruleta
+
 function actualizarRueda() {
   const k = Number($("#desp").value);
   const valido = Number.isInteger(k) && k >= 1 && k <= 25;
-  $("#giro").style.transform = `rotate(${-(valido ? k : 0) * PASO}deg)`;
+  if (valido) {
+    // Gira por el camino más corto hasta la posición del desplazamiento k.
+    rotActual = -k * PASO + 360 * Math.round((rotActual + k * PASO) / 360);
+    $("#giro").style.transform = `rotate(${rotActual}deg)`;
+  }
   $("#leyenda").textContent = valido
-    ? `Desplazamiento ${k}:  A → ${ABC[k % 26]}`
+    ? `Desplazamiento ${k}`
     : modo === "fuerza" ? "Se probarán los 25 desplazamientos" : "Elige un desplazamiento";
+}
+
+/* ---------- Giro manual de la ruleta (mouse y dedo) ---------- */
+function anguloPuntero(e) {
+  const r = $("#rueda").getBoundingClientRect();
+  const dx = e.clientX - (r.left + r.width / 2);
+  const dy = e.clientY - (r.top + r.height / 2);
+  return (Math.atan2(dx, -dy) * 180) / Math.PI; // 0° arriba, positivo en sentido horario
+}
+
+function soltarRueda() {
+  if (!arrastre) return;
+  rotActual = arrastre.rot;
+  arrastre = null;
+  $("#rueda").classList.remove("arrastrando");
+  actualizarRueda(); // ajusta la ruleta al desplazamiento más cercano
+}
+
+function activarGiroManual() {
+  const rueda = $("#rueda");
+  rueda.addEventListener("pointerdown", e => {
+    arrastre = { ultimo: anguloPuntero(e), rot: rotActual };
+    rueda.setPointerCapture(e.pointerId);
+    rueda.classList.add("arrastrando");
+  });
+  rueda.addEventListener("pointermove", e => {
+    if (!arrastre) return;
+    const a = anguloPuntero(e);
+    let d = a - arrastre.ultimo;
+    if (d > 180) d -= 360;
+    if (d < -180) d += 360;
+    arrastre.ultimo = a;
+    arrastre.rot += d;
+    $("#giro").style.transform = `rotate(${arrastre.rot}deg)`;
+    const k = ((Math.round(-arrastre.rot / PASO) % 26) + 26) % 26;
+    if (k >= 1 && k <= 25 && k !== Number($("#desp").value)) {
+      $("#desp").value = k;
+      $("#leyenda").textContent = `Desplazamiento ${k}`;
+    }
+  });
+  rueda.addEventListener("pointerup", soltarRueda);
+  rueda.addEventListener("pointercancel", soltarRueda);
 }
 
 /* ---------- Utilidades ---------- */
@@ -190,7 +239,7 @@ function pintarHistorial() {
   const cont = $("#historial");
   cont.replaceChildren();
   if (!historial.length) {
-    cont.append(el("p", "vacio", "Aún no hay operaciones. Tus resultados aparecerán aquí."));
+    cont.append(el("p", "vacio", "Aún no hay operaciones realizadas."));
     return;
   }
   cont.append(tabla(historial.map(h => ({
@@ -297,6 +346,7 @@ $("#burger").addEventListener("click", () => {
 document.addEventListener("keydown", e => { if (e.key === "Escape") { cerrarMenu(); cerrarPaneles(); } });
 
 dibujarRueda();
+activarGiroManual();
 cambiarModo("cifrar");
 pintarHistorial();
 sincronizarNav();
